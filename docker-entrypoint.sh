@@ -134,4 +134,60 @@ if [[ "$1" == "cypress"* ]]; then
   fi
 fi
 
+
+if [[ "$1" == "fix"* ]]; then
+  cd /opt/frontend/my-volto-project/src/addons/$GIT_NAME
+  skip_tests=""
+
+  result=$(exec ../../../node_modules/.bin/prettier --single-quote --write 'src/**/*.{js,jsx,json,css,less,md}' || echo "Error")
+  if [[ ! "$result" == "Error" ]]; then
+      if [ $(git diff src/* themes/* | wc -l) -ne 0 ]; then
+        git add src/*
+        git commit -m "style: Automatic prettier fix"
+        skip_tests="yes"
+      else
+        echo "Nothing to fix with prettier"
+      fi
+  else
+      echo "Prettier fix failed"
+  fi
+ 
+  result=$(exec ../../../node_modules/eslint/bin/eslint.js --fix 'src/**/*.{js,jsx,json}' || echo "Error")
+  if [[ ! "$result" == "Error" ]]; then
+      if [ $(git diff src/* themes/* | wc -l) -ne 0 ]; then
+        git add src/*
+        git commit -m "style: Automatic eslint fix"
+        skip_tests="yes"
+      else
+        echo "Nothing to fix with eslint"
+      fi
+  else
+      echo "Eslint fix failed"
+  fi
+  
+  result=$(exec ../../../node_modules/stylelint/bin/stylelint.js --allow-empty-input 'src/**/*.{css,less}' --fix || echo "Error")
+  if [[ ! "$result" == "Error" ]]; then
+    	exec ../../../node_modules/stylelint/bin/stylelint.js --syntax less --allow-empty-input 'theme/**/*.overrides' 'src/**/*.overrides' --fix || echo "Skip overrides"
+
+      
+      if [ $(git diff src/* themes/* | wc -l) -ne 0 ]; then
+        git add src/*
+        git commit -m "style: Automatic stylelint fix"
+        skip_tests="yes"
+      else
+        echo "Nothing to fix with stylelint"
+      fi
+      
+  else
+      echo "Stylelint fix failed"
+  fi
+
+  if [ -n "$skip_tests" ]; then
+      git push
+      echo "Commited code, will fail the pipeline"
+      exit 1
+  fi
+  
+fi
+
 exec "$@"
